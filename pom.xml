@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>2.4.2</version>
+		<relativePath/> <!-- lookup parent from repository -->
+	</parent>
+	
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>io.github.storevm</groupId>
+	<artifactId>framework-parent</artifactId>
+	<version>1.0.0-SNAPSHOT</version>
+	<name>StoreVM Framework Parent</name>
+	<url>http://www.storevm.org</url>
+	<packaging>pom</packaging>
+
+	<properties>
+		<project.build.sourceEncoding>utf-8</project.build.sourceEncoding>
+		<storevm.framework.version>1.0.0-SNAPSHOT</storevm.framework.version>
+	</properties>
+
+	<dependencyManagement>
+		<dependencies>
+			<!-- Apache Commons -->
+			<dependency>
+				<groupId>commons-io</groupId>
+				<artifactId>commons-io</artifactId>
+				<version>2.6</version>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.commons</groupId>
+				<artifactId>commons-collections4</artifactId>
+				<version>4.4</version>
+			</dependency>
+
+			<!-- Google Guava -->
+			<dependency>
+				<groupId>com.google.guava</groupId>
+				<artifactId>guava</artifactId>
+				<version>28.2-jre</version>
+			</dependency>
+
+			<!-- Apache Pulsar Client for Java -->
+			<dependency>
+				<groupId>org.apache.pulsar</groupId>
+				<artifactId>pulsar-client</artifactId>
+				<version>2.7.0</version>
+			</dependency>
+			
+			<!-- lombok -->
+			<dependency>
+				<groupId>org.projectlombok</groupId>
+				<artifactId>lombok</artifactId>
+				<version>1.18.18</version>
+			</dependency>
+
+			<!-- subproject -->
+			<dependency>
+				<groupId>io.github.storevm</groupId>
+				<artifactId>framework-pulsar</artifactId>
+				<version>${storevm.framework.version}</version>
+			</dependency>
+
+			<!-- junit -->
+    		<dependency>
+      			<groupId>junit</groupId>
+      			<artifactId>junit</artifactId>
+      			<version>4.12</version>
+    		</dependency>
+		</dependencies>
+	</dependencyManagement>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-jar-plugin</artifactId>
+				<version>2.6</version>
+				<configuration>
+					<archive>
+						<manifestFile>META-INF/MANIFEST.MF</manifestFile>
+					</archive>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.5.1</version>
+				<configuration>
+					<compilerVersion>1.8</compilerVersion>
+					<source>1.8</source>
+					<target>1.8</target>
+					<encoding>${project.build.sourceEncoding}</encoding>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-source-plugin</artifactId>
+				<version>2.4</version>
+				<executions>
+					<execution>
+						<id>attach-sources</id>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-eclipse-plugin</artifactId>
+				<version>2.10</version>
+				<configuration>
+					<useProjectReferences>true</useProjectReferences>
+					<downloadSources>true</downloadSources>
+					<pde>false</pde>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+	
+	<modules>
+		<module>module</module>
+		<!--
+		<module>plugin</module>
+		-->
+		<module>starter</module>
+	</modules>
+</project>
