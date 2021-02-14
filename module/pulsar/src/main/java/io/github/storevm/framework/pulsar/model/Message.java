@@ -197,5 +197,6 @@ public class Message implements Serializable {
         public static final String KEYCLASS = "__KEYCLASS";
         public static final String VALUECLASS = "__VALUECLASS";
         public static final String TIMEOUT = "__TIMEOUT";
+        public static final String PRODUCERTYPE = "__PRODUCERTYPE";
     }
 }

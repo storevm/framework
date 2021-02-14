@@ -17,6 +17,8 @@ import org.springframework.beans.factory.InitializingBean;
 
 import io.github.storevm.framework.pulsar.config.PulsarClientConfig;
 import io.github.storevm.framework.pulsar.consumer.impl.PulsarConsumerRegistry;
+import io.github.storevm.framework.pulsar.model.Message.SystemPropKey;
+import io.github.storevm.framework.pulsar.model.ProducerTypeEnum;
 import io.github.storevm.framework.pulsar.producer.MessagingAccessPoint;
 import io.github.storevm.framework.pulsar.producer.Producer;
 
@@ -137,7 +139,7 @@ public class PulsarMessagingAccessPoint<K, V> implements MessagingAccessPoint<K,
      */
     @Override
     public String version() {
-        return null;
+        return "1.0.0";
     }
 
     /**
@@ -156,10 +158,24 @@ public class PulsarMessagingAccessPoint<K, V> implements MessagingAccessPoint<K,
     public Producer<K, V> createProducer(String topic, K key, V value, Properties properties) throws Exception {
         PulsarProducer<K, V> producer = cache.get(topic);
         if (producer == null) {
-            producer = new PulsarProducer<K, V>(this.client, this.config.getPulsarProducerConfig(topic));
-            producer.afterPropertiesSet();
-            producer.setSchema(value);
-            cache.put(topic, producer);
+            ProducerTypeEnum type = (ProducerTypeEnum)properties.get(SystemPropKey.PRODUCERTYPE);
+            if (type != null) {
+                switch (type) {
+                    case ASYNC:
+                        producer = new AsyncPulsarProducer(this.client, this.config.getPulsarProducerConfig(topic), key,
+                            value); // 异步消息生产者
+                        break;
+                    case DELAYED:
+                        producer = new DelayedPulsarProducer(this.client, this.config.getPulsarProducerConfig(topic),
+                            key, value); // 延迟消息生产者
+                        break;
+                    default:
+                        producer =
+                            new SyncPulsarProducer(this.client, this.config.getPulsarProducerConfig(topic), key, value); // 同步消息生产者
+                }
+                producer.start();
+                cache.put(topic, producer);
+            }
         }
         return producer;
     }

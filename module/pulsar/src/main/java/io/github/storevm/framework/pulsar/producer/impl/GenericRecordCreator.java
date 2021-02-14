@@ -11,46 +11,46 @@ import org.apache.pulsar.client.api.schema.GenericRecordBuilder;
 import org.apache.pulsar.client.api.schema.GenericSchema;
 
 import io.github.storevm.framework.pulsar.model.FieldConversion;
-import io.github.storevm.framework.pulsar.model.GenericSchemaMetadata;
+import io.github.storevm.framework.pulsar.model.RecordSchema;
 
 /**
  * @author Jack
  * @date 2021/12/31
  * @version 1.0.0
  */
-public class GenericRecordCreator {
-    private GenericSchemaMetadata metadata;
+public class GenericRecordCreator<K, V> {
+    private RecordSchema<K, V> record;
     private FieldConversion conversion;
 
-    protected GenericRecordCreator(GenericSchemaMetadata metadata) {
-        this.metadata = metadata;
+    protected GenericRecordCreator(RecordSchema record) {
+        this.record = record;
         this.conversion = new FieldConversion();
     }
 
-    public static GenericRecordCreator builder(GenericSchemaMetadata metadata) {
-        return new GenericRecordCreator(metadata);
+    public static GenericRecordCreator newInstance(RecordSchema record) {
+        return new GenericRecordCreator(record);
     }
 
-    public <V> GenericRecord create(V value, GenericSchema<GenericRecord> schema) throws IllegalAccessException {
-        return toGenericRecord(value, this.metadata, schema);
+    public GenericRecord create(V value) throws IllegalAccessException {
+        return toGenericRecord(value, this.record, (GenericSchema<GenericRecord>)this.record.getSchema());
     }
 
-    private <V> GenericRecord toGenericRecord(V value, GenericSchemaMetadata metadata,
-        GenericSchema<GenericRecord> schema) throws IllegalAccessException {
+    private GenericRecord toGenericRecord(V value, RecordSchema record, GenericSchema<GenericRecord> schema)
+        throws IllegalAccessException {
         GenericRecordBuilder builder = schema.newRecordBuilder();
-        Set<Entry<Field, GenericSchemaMetadata>> set = metadata.getMap().entrySet();
-        Iterator<Entry<Field, GenericSchemaMetadata>> it = set.iterator();
+        Set<Entry<Field, RecordSchema>> set = record.getMap().entrySet();
+        Iterator<Entry<Field, RecordSchema>> it = set.iterator();
         while (it.hasNext()) {
-            Entry<Field, GenericSchemaMetadata> entry = it.next();
+            Entry<Field, RecordSchema> entry = it.next();
             V val = (V)FieldUtils.readField(entry.getKey(), value, true);
             if (entry.getValue() == null) { // 简单对象
                 builder.set(entry.getKey().getName(), this.conversion.convert(val));
             } else { // 复杂对象
                 builder.set(entry.getKey().getName(),
-                    toGenericRecord(val, entry.getValue(), entry.getValue().getSchema()));
+                    toGenericRecord(val, entry.getValue(), (GenericSchema<GenericRecord>)entry.getValue().getSchema()));
             }
         }
-        GenericRecord record = builder.build();
-        return record;
+        GenericRecord gr = builder.build();
+        return gr;
     }
 }
