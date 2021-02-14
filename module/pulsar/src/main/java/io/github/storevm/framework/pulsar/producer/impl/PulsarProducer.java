@@ -59,7 +59,7 @@ public class PulsarProducer<K, V>
     private transient ServiceLifeState status = ServiceLifeState.INITIALIZED; // status
     private PulsarClient client; // Pulsar client instance
     private PulsarProducerConfig config; // Pulsar producer configuration
-    private Producer<?> producer; // Pulsar producer instance
+    private Producer<V> producer; // Pulsar producer instance
     private Schema<?> schema; // 消息的schema
     private GenericSchemaMetadata metadata = new GenericSchemaMetadata();
 
