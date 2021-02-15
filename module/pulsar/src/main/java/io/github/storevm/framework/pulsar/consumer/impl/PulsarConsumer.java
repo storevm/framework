@@ -1,12 +1,5 @@
 package io.github.storevm.framework.pulsar.consumer.impl;
 
-import java.lang.reflect.Field;
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.nio.ByteBuffer;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.util.Date;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -15,10 +8,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.ArrayUtils;
-import org.apache.commons.lang3.ClassUtils;
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.ConsumerBuilder;
 import org.apache.pulsar.client.api.ConsumerCryptoFailureAction;
@@ -26,23 +17,16 @@ import org.apache.pulsar.client.api.DeadLetterPolicy;
 import org.apache.pulsar.client.api.PulsarClient;
 import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.client.api.RegexSubscriptionMode;
-import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.client.api.SubscriptionInitialPosition;
 import org.apache.pulsar.client.api.SubscriptionType;
-import org.apache.pulsar.client.api.schema.GenericRecord;
-import org.apache.pulsar.client.api.schema.GenericSchema;
-import org.apache.pulsar.client.api.schema.RecordSchemaBuilder;
-import org.apache.pulsar.client.api.schema.SchemaBuilder;
-import org.apache.pulsar.common.schema.SchemaInfo;
-import org.apache.pulsar.common.schema.SchemaType;
-import org.apache.pulsar.shade.io.netty.buffer.ByteBuf;
 import org.springframework.beans.factory.InitializingBean;
 
+import io.github.storevm.framework.pulsar.MessageManagement;
 import io.github.storevm.framework.pulsar.config.PulsarConsumerConfig;
-import io.github.storevm.framework.pulsar.consumer.MessageListener;
+import io.github.storevm.framework.pulsar.consumer.MessageHandler;
 import io.github.storevm.framework.pulsar.model.Action;
 import io.github.storevm.framework.pulsar.model.PulsarMessage;
-import io.github.storevm.framework.pulsar.model.ServiceLifeState;
+import io.github.storevm.framework.pulsar.model.RecordSchema;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -50,13 +34,13 @@ import lombok.extern.slf4j.Slf4j;
  * @date 2021/02/14
  */
 @Slf4j
-public class PulsarConsumer<T> implements io.github.storevm.framework.pulsar.consumer.Consumer, InitializingBean {
-    private transient ServiceLifeState status = ServiceLifeState.INITIALIZED; // status
+public class PulsarConsumer<T> extends MessageManagement
+    implements io.github.storevm.framework.pulsar.consumer.Consumer, InitializingBean {
     private PulsarClient client; // Pulsar client instance
     private Consumer<T> consumer; // Pulsar consumer instance
     private PulsarConsumerConfig config; // Pulsar consumer configuration
     private int concurrency = 1;
-    private MessageListener listener;
+    private MessageHandler listener;
     private ExecutorService io;
     private ExecutorService worker;
 
@@ -76,7 +60,7 @@ public class PulsarConsumer<T> implements io.github.storevm.framework.pulsar.con
      */
     @Override
     public void afterPropertiesSet() throws Exception {
-        ConsumerBuilder builder = this.client.newConsumer(toSchema(this.config.getSchemaClass()));
+        ConsumerBuilder builder = this.client.newConsumer(new RecordSchema(this.config.getSchemaClass()).getSchema());
         // 进行消费者对象的参数设置
         builder.topic(this.config.getTopic());
         builder.subscriptionName(StringUtils.isNotBlank(this.config.getSubscriptionName())
@@ -151,48 +135,27 @@ public class PulsarConsumer<T> implements io.github.storevm.framework.pulsar.con
     }
 
     /**
-     * 
+     * @see io.github.storevm.framework.pulsar.MessageManagement#doStart()
      */
     @Override
-    public boolean isStarted() {
-        return status == ServiceLifeState.STARTED;
+    protected void doStart() {
+        io.execute(new Runnable() {
+            @Override
+            public void run() {
+                subscribe();
+            }
+        });
     }
 
     /**
-     * 
-     * @return
+     * @see io.github.storevm.framework.pulsar.MessageManagement#doClose()
      */
     @Override
-    public boolean isClosed() {
-        return status == ServiceLifeState.STOPPED;
-    }
-
-    /**
-     * 
-     */
-    @Override
-    public void start() {
-        if (!isStarted()) {
-            io.execute(new Runnable() {
-                @Override
-                public void run() {
-                    subscribe();
-                }
-            });
-            status = ServiceLifeState.STARTED;
-        }
-    }
-
-    /**
-     * 
-     */
-    @Override
-    public void shutdown() {
+    protected void doClose() {
         if (this.consumer != null) {
             try {
                 this.consumer.close();
                 shutdownExecutors(io, worker);
-                this.status = ServiceLifeState.STOPPED;
             } catch (PulsarClientException ex) {
                 log.error("关闭Pulsar消费者时发生异常", ex);
                 throw new RuntimeException("关闭Pulsar消费者时发生异常");
@@ -201,11 +164,11 @@ public class PulsarConsumer<T> implements io.github.storevm.framework.pulsar.con
     }
 
     /**
-     * @see io.github.storevm.framework.pulsar.consumer.Consumer#addListener(io.github.storevm.framework.pulsar.consumer.MessageListener,
+     * @see io.github.storevm.framework.pulsar.consumer.Consumer#addListener(io.github.storevm.framework.pulsar.consumer.MessageHandler,
      *      java.lang.String[])
      */
     @Override
-    public void addListener(MessageListener listener, String... topics) {
+    public void addListener(MessageHandler listener, String... topics) {
         if (ArrayUtils.contains(topics, this.config.getTopic())) {
             this.listener = listener;
             // 启动消费者
@@ -251,93 +214,6 @@ public class PulsarConsumer<T> implements io.github.storevm.framework.pulsar.con
     @Override
     public void setConcurrency(int concurrency) {
         this.concurrency = concurrency;
-    }
-
-    /**
-     * 根据类型转换成Pulsar指定类型的schema
-     * 
-     * @param cls
-     * @return
-     */
-    private Schema<?> toSchema(Class<?> cls) {
-        if (ClassUtils.isAssignable(cls, byte[].class) || ClassUtils.isAssignable(cls, ByteBuffer.class)
-            || ClassUtils.isAssignable(cls, ByteBuf.class)) {
-            return Schema.BYTES;
-        } else if (ClassUtils.isAssignable(cls, String.class)) {
-            return Schema.STRING;
-        } else if (ClassUtils.isAssignable(cls, Integer.class)) {
-            return Schema.INT32;
-        } else if (ClassUtils.isAssignable(cls, Long.class)) {
-            return Schema.INT64;
-        } else if (ClassUtils.isAssignable(cls, Short.class)) {
-            return Schema.INT16;
-        } else if (ClassUtils.isAssignable(cls, Byte.class)) {
-            return Schema.INT8;
-        } else if (ClassUtils.isAssignable(cls, Float.class)) {
-            return Schema.FLOAT;
-        } else if (ClassUtils.isAssignable(cls, Double.class)) {
-            return Schema.DOUBLE;
-        } else if (ClassUtils.isAssignable(cls, Boolean.class)) {
-            return Schema.BOOL;
-        } else if (ClassUtils.isAssignable(cls, Date.class)) {
-            return Schema.DATE;
-        } else if (ClassUtils.isAssignable(cls, Timestamp.class)) {
-            return Schema.TIMESTAMP;
-        } else if (ClassUtils.isAssignable(cls, Time.class)) {
-            return Schema.TIME;
-        } else {
-            return toGenericSchema(cls);
-        }
-    }
-
-    /**
-     * 转换成泛型的schema
-     * 
-     * @param cls
-     * @return
-     */
-    private GenericSchema<GenericRecord> toGenericSchema(Class<?> cls) {
-        Field[] fields = FieldUtils.getAllFields(cls);
-        RecordSchemaBuilder builder = SchemaBuilder.record(ClassUtils.getShortClassName(cls));
-        for (int i = 0, n = fields.length; i < n; i++) {
-            if (!StringUtils.equalsIgnoreCase("serialVersionUID", fields[i].getName())) {
-                if (ClassUtils.isAssignable(fields[i].getType(), Boolean.class)) {
-                    builder.field(fields[i].getName()).type(SchemaType.BOOLEAN);
-                } else if (ClassUtils.isAssignable(fields[i].getType(), Byte.class)) {
-                    builder.field(fields[i].getName()).type(SchemaType.INT8);
-                } else if (ClassUtils.isAssignable(fields[i].getType(), Short.class)) {
-                    builder.field(fields[i].getName()).type(SchemaType.INT16);
-                } else if (ClassUtils.isAssignable(fields[i].getType(), Integer.class)) {
-                    builder.field(fields[i].getName()).type(SchemaType.INT32);
-                } else if (ClassUtils.isAssignable(fields[i].getType(), Long.class)) {
-                    builder.field(fields[i].getName()).type(SchemaType.INT64);
-                } else if (ClassUtils.isAssignable(fields[i].getType(), Float.class)) {
-                    builder.field(fields[i].getName()).type(SchemaType.FLOAT);
-                } else if (ClassUtils.isAssignable(fields[i].getType(), Double.class)) {
-                    builder.field(fields[i].getName()).type(SchemaType.DOUBLE);
-                } else if (ClassUtils.isAssignable(fields[i].getType(), byte[].class)
-                    || ClassUtils.isAssignable(fields[i].getType(), ByteBuffer.class)
-                    || ClassUtils.isAssignable(fields[i].getType(), ByteBuf.class)) {
-                    builder.field(fields[i].getName()).type(SchemaType.BYTES);
-                } else if (ClassUtils.isAssignable(fields[i].getType(), String.class)) {
-                    builder.field(fields[i].getName()).type(SchemaType.STRING);
-                } else if (ClassUtils.isAssignable(fields[i].getType(), Timestamp.class)
-                    || ClassUtils.isAssignable(fields[i].getType(), Date.class)) {
-                    builder.field(fields[i].getName()).type(SchemaType.TIMESTAMP);
-                } else if (ClassUtils.isAssignable(fields[i].getType(), Time.class)) {
-                    builder.field(fields[i].getName()).type(SchemaType.TIME);
-                } else if (ClassUtils.isAssignable(fields[i].getType(), BigDecimal.class)
-                    || ClassUtils.isAssignable(fields[i].getType(), BigInteger.class)) {
-                    builder.field(fields[i].getName()).type(SchemaType.STRING);
-                } else {
-                    // 复杂对象
-                    GenericSchema<GenericRecord> s = toGenericSchema(fields[i].getType());
-                    builder.field(fields[i].getName(), s).type(SchemaType.AVRO);
-                }
-            }
-        }
-        SchemaInfo schemaInfo = builder.build(SchemaType.AVRO);
-        return Schema.generic(schemaInfo);
     }
 
     /**

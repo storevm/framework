@@ -21,6 +21,7 @@ import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.stereotype.Component;
 
 import io.github.storevm.framework.pulsar.consumer.ConsumerRegistry;
+import io.github.storevm.framework.pulsar.consumer.MessageHandler;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -48,7 +49,7 @@ public class MessageListenerAnnotationBeanPostProcessor
     public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
         io.github.storevm.framework.pulsar.annotation.MessageListener annotation = AnnotationUtils
             .findAnnotation(bean.getClass(), io.github.storevm.framework.pulsar.annotation.MessageListener.class);
-        if ((bean instanceof MessageListener) && annotation != null) {
+        if ((bean instanceof MessageHandler) && annotation != null) {
             String[] topics = resolveTopic(annotation);
             log.info("解析消息监听器的主题, topics={}", Arrays.toString(topics));
             // 从spring上下文中找到消费者注册器
@@ -56,8 +57,7 @@ public class MessageListenerAnnotationBeanPostProcessor
             Set<Entry<String, ConsumerRegistry>> set = registries.entrySet();
             Iterator<Entry<String, ConsumerRegistry>> it = set.iterator();
             while (it.hasNext()) {
-                it.next().getValue().addListener(topics,
-                    (io.github.storevm.framework.pulsar.consumer.MessageListener)bean);
+                it.next().getValue().addListener(topics, (MessageHandler)bean);
             }
         }
         return bean;

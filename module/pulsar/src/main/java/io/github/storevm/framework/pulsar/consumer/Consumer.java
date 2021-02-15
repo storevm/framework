@@ -10,7 +10,7 @@ public interface Consumer {
      * @param listener
      * @param topics
      */
-    void addListener(MessageListener listener, String... topics);
+    void addListener(MessageHandler listener, String... topics);
 
     /**
      * Subscribe to messages, which can be filtered using SQL expressions.

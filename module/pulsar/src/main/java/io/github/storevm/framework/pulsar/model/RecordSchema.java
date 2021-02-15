@@ -47,6 +47,18 @@ public class RecordSchema<K, V> {
         this.schema = toSchema(value);
     }
 
+    /**
+     * constructor
+     * 
+     * @param valueClass
+     */
+    public RecordSchema(final Class<V> valueClass) {
+        this.schema = toSchema(valueClass);
+        if (this.schema == null) {
+            this.schema = toGenericSchema(valueClass, this);
+        }
+    }
+
     public void addChild(Field field, RecordSchema child) {
         map.put(field, child);
     }

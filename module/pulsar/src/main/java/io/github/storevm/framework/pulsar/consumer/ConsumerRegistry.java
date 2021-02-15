@@ -5,7 +5,7 @@ package io.github.storevm.framework.pulsar.consumer;
  * @date 2021/02/14
  */
 public interface ConsumerRegistry {
-    void addListener(String[] topics, MessageListener listener);
+    void addListener(String[] topics, MessageHandler listener);
 
     void shutdown();
 }

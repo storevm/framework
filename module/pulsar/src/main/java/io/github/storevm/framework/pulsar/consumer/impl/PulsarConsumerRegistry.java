@@ -12,7 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import io.github.storevm.framework.pulsar.config.PulsarClientConfig;
 import io.github.storevm.framework.pulsar.config.PulsarConsumerConfig;
 import io.github.storevm.framework.pulsar.consumer.ConsumerRegistry;
-import io.github.storevm.framework.pulsar.consumer.MessageListener;
+import io.github.storevm.framework.pulsar.consumer.MessageHandler;
 
 /**
  * @author Jack
@@ -43,10 +43,10 @@ public class PulsarConsumerRegistry implements ConsumerRegistry {
 
     /**
      * @see io.github.storevm.framework.pulsar.consumer.ConsumerRegistry#addListener(java.lang.String[],
-     *      io.github.storevm.framework.pulsar.consumer.MessageListener)
+     *      io.github.storevm.framework.pulsar.consumer.MessageHandler)
      */
     @Override
-    public void addListener(String[] topics, MessageListener listener) {
+    public void addListener(String[] topics, MessageHandler listener) {
         Set<Entry<String, PulsarConsumer>> set = consumers.entrySet();
         Iterator<Entry<String, PulsarConsumer>> it = set.iterator();
         while (it.hasNext()) {

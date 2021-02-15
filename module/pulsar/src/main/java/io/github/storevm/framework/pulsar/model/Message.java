@@ -171,7 +171,9 @@ public class Message implements Serializable {
      * @return Message offset in relative partition
      */
     public TopicPartition getTopicPartition() {
-        return new TopicPartition(topic, Integer.valueOf(getUserProperties(SystemPropKey.PARTITION)));
+        String v = getUserProperties(SystemPropKey.PARTITION);
+        Integer partition = v != null ? Integer.valueOf(v) : -1;
+        return new TopicPartition(topic, partition);
     }
 
     public Long getTimeout(Long def) {
