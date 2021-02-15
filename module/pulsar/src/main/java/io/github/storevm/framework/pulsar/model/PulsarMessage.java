@@ -56,7 +56,7 @@ public class PulsarMessage<K, V> extends Message {
         this.setValue((V)message.getValue());
     }
 
-    public V value() {
+    public V getValue() {
         if (value instanceof GenericAvroRecord) {
             Class<V> cls = getValueClass();
             return toValue(cls, (GenericAvroRecord)value);
